@@ -1,0 +1,52 @@
+name: Build Nuitka Executable
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install project dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build executable with Nuitka
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+          ./build_with_nuitka.ps1
+
+      - name: Package dist output
+        shell: pwsh
+        run: |
+          $artifactName = "GaodeAtlas-$($env:GITHUB_REF_NAME)"
+          $artifactDir = "artifacts"
+          if (-not (Test-Path $artifactDir)) {
+            New-Item -ItemType Directory -Path $artifactDir | Out-Null
+          }
+          $zipPath = Join-Path $artifactDir "$artifactName.zip"
+          if (Test-Path $zipPath) {
+            Remove-Item $zipPath
+          }
+          Compress-Archive -Path "dist\*" -DestinationPath $zipPath
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gaodeatlas-${{ github.ref_name }}
+          path: artifacts/*.zip
