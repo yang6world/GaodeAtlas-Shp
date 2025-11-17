@@ -1,32 +1,44 @@
 from __future__ import annotations
 
+import argparse
+import json
 import math
+import sys
 from typing import Iterable, List, Sequence, Tuple
 
 Coordinate = Tuple[float, float]
 
 
 def parse_shape_string(shape: str | None) -> List[Coordinate]:
+    rings = parse_shape_rings(shape)
+    return rings[0] if rings else []
+
+
+def parse_shape_rings(shape: str | None) -> List[List[Coordinate]]:
     if not shape:
         return []
-    coords: List[Coordinate] = []
-    for pair in shape.split(";"):
-        pair = pair.strip()
-        if not pair:
+    rings: List[List[Coordinate]] = []
+    for raw_ring in shape.split("@"):
+        ring_coords: List[Coordinate] = []
+        for pair in raw_ring.split(";"):
+            pair = pair.strip()
+            if not pair:
+                continue
+            lon_lat = pair.split(",")
+            if len(lon_lat) != 2:
+                continue
+            try:
+                lon = float(lon_lat[0])
+                lat = float(lon_lat[1])
+            except ValueError:
+                continue
+            ring_coords.append((lon, lat))
+        if not ring_coords:
             continue
-        lon_lat = pair.split(",")
-        if len(lon_lat) != 2:
-            continue
-        try:
-            lon = float(lon_lat[0])
-            lat = float(lon_lat[1])
-        except ValueError:
-            continue
-        coords.append((lon, lat))
-    # ensure polygon closed for downstream consumers
-    if coords and coords[0] != coords[-1]:
-        coords.append(coords[0])
-    return coords
+        if ring_coords[0] != ring_coords[-1]:
+            ring_coords.append(ring_coords[0])
+        rings.append(ring_coords)
+    return rings
 
 
 def coordinates_to_feature(coords: Sequence[Coordinate], properties: dict | None = None) -> dict:
@@ -116,3 +128,86 @@ def gcj02_to_wgs84(lon: float, lat: float) -> Coordinate:
 
 def convert_gcj02_polygon(coords: Sequence[Coordinate]) -> List[Coordinate]:
     return [gcj02_to_wgs84(lon, lat) for lon, lat in coords]
+
+
+def coordinates_to_shape_string(
+    coords: Sequence[Coordinate], *, precision: int = 6, close_ring: bool = True
+) -> str:
+    if not coords:
+        return ""
+    points = list(coords)
+    if points[0] == points[-1] and not close_ring:
+        points = points[:-1]
+    elif close_ring and points[0] != points[-1]:
+        points = points + [points[0]]
+    fmt = f"{{:.{precision}f}}"
+    return ";".join(f"{fmt.format(lon)},{fmt.format(lat)}" for lon, lat in points)
+
+
+def rings_to_shape_string(
+    rings: Sequence[Sequence[Coordinate]], *, precision: int = 6, close_rings: bool = True
+) -> str:
+    parts = []
+    for ring in rings:
+        text = coordinates_to_shape_string(ring, precision=precision, close_ring=close_rings)
+        if text:
+            parts.append(text)
+    return "@".join(parts)
+
+
+def feature_to_shape_string(feature: dict, *, precision: int = 6, close_rings: bool = True) -> str:
+    geometry = feature.get("geometry") or {}
+    gtype = geometry.get("type")
+    coords = geometry.get("coordinates") or []
+    rings: List[List[Coordinate]] = []
+    if gtype == "Polygon":
+        rings = [[(float(lon), float(lat)) for lon, lat in ring] for ring in coords]
+    elif gtype == "MultiPolygon":
+        for polygon in coords:
+            for ring in polygon:
+                rings.append([(float(lon), float(lat)) for lon, lat in ring])
+    else:
+        raise ValueError("Only Polygon or MultiPolygon geometries can be converted to shape strings")
+    return rings_to_shape_string(rings, precision=precision, close_rings=close_rings)
+
+
+def _cli() -> None:
+    parser = argparse.ArgumentParser(description="Convert GeoJSON polygons to Gaode shape strings")
+    parser.add_argument("geojson", help="Path to the GeoJSON file to convert")
+    parser.add_argument(
+        "--feature-index",
+        type=int,
+        default=0,
+        help="Zero-based index of the feature to convert (default: 0)",
+    )
+    parser.add_argument(
+        "--precision",
+        type=int,
+        default=6,
+        help="Decimal places to keep for each coordinate (default: 6)",
+    )
+    parser.add_argument(
+        "--keep-open",
+        action="store_true",
+        help="Do not append the starting point at the end of each ring",
+    )
+    args = parser.parse_args()
+    with open(args.geojson, "r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    features = data.get("features") or []
+    if not features:
+        raise SystemExit("GeoJSON 文件中没有任何 Feature")
+    index = max(0, min(args.feature_index, len(features) - 1))
+    shape_text = feature_to_shape_string(
+        features[index],
+        precision=max(0, args.precision),
+        close_rings=not args.keep_open,
+    )
+    print(shape_text)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) == 1:
+        print("用法: python geometry_utils.py <geojson> [--feature-index N] [--precision P]")
+        sys.exit(0)
+    _cli()
