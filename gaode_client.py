@@ -39,10 +39,15 @@ class GaodeClient:
             )
         return PlaceDetail(
             poiid=base.get("poiid") or poiid,
+            classify=base.get("classify") or "",
+            longitude=float(base.get("longitude") or 0.0),
+            latitude=float(base.get("latitude") or 0.0),
             name=base.get("name") or "",
             address=base.get("address") or "",
             telephone=base.get("telephone") or "",
             city_name=base.get("city_name") or "",
+            city_adcode=base.get("city_adcode") or "",
+            code=base.get("code") or "",
             tag=base.get("tag") or base.get("new_keytype") or "",
             mining_shape=mining_shape,
             metadata={

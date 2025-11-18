@@ -18,9 +18,14 @@ class MiningShape:
 class PlaceDetail:
     poiid: str
     name: str
+    classify: str
+    longitude: float
+    latitude: float
     address: str
     telephone: str
     city_name: str
+    city_adcode: str
+    code: str
     tag: str
     mining_shape: MiningShape | None
     metadata: Dict

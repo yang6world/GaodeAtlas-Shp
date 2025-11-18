@@ -29,8 +29,14 @@ def _require_geometry(place: PlaceDetail) -> None:
 def _place_properties(place: PlaceDetail) -> Dict[str, str]:
     return {
         "name": place.name,
+        "classify": place.classify,
+        "longitude": str(place.longitude),
+        "latitude": str(place.latitude),
         "address": place.address,
         "telephone": place.telephone,
+        "city_name": place.city_name,
+        "city_adcode": place.city_adcode,
+        "code": place.code,
         "poiid": place.poiid,
         "tag": place.tag,
     }
@@ -74,7 +80,7 @@ class ShapefileExporter:
         base = os.path.splitext(shp_path)[0]
         writer = _create_writer(base)
         writer.poly([place.mining_shape.coordinates])
-        writer.record(place.name, place.address, place.telephone, place.poiid)
+        writer.record(place.name, place.classify, place.longitude, place.latitude, place.address, place.telephone, place.city_name, place.city_adcode, place.code, place.tag, place.poiid)
         writer.close()
         prj_path = f"{base}.prj"
         with open(prj_path, "w", encoding="utf-8") as fh:
@@ -93,7 +99,7 @@ class ShapefileExporter:
                 skipped.append(place.poiid)
                 continue
             writer.poly([place.mining_shape.coordinates])
-            writer.record(place.name, place.address, place.telephone, place.poiid)
+            writer.record(place.name, place.classify, place.longitude, place.latitude, place.address, place.telephone, place.city_name, place.city_adcode, place.code, place.tag, place.poiid)
             count += 1
         if count == 0:
             writer.close()
@@ -108,7 +114,14 @@ class ShapefileExporter:
 def _create_writer(base: str) -> shapefile.Writer:
     writer = shapefile.Writer(base, shapeType=shapefile.POLYGON)
     writer.field("name", "C", size=80)
+    writer.field("classify", "C", size=80)
+    writer.field("longitude", "N", decimal=8)
+    writer.field("latitude", "N", decimal=8)
     writer.field("address", "C", size=120)
     writer.field("telephone", "C", size=40)
+    writer.field("city_name", "C", size=40)
+    writer.field("city_adcode", "C", size=20)
+    writer.field("code", "C", size=20)
+    writer.field("tag", "C", size=80)
     writer.field("poiid", "C", size=32)
     return writer
