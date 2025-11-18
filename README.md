@@ -5,13 +5,11 @@
 ## 功能亮点
 - **实时抓取**：借助网页自身的 `https://ditu.amap.com/detail/get/detail` 请求，只需输入 POI ID 或通过网页捕捉即可获取名称、地址、电话及 `mining_shape` 外形。 
 - **网页嵌入**：右侧内置 `https://ditu.amap.com/`，点击地物即自动监听 detail 请求，无需手动粘贴 POI ID。界面采用多重 Splitter，自适应全屏尺寸。  
-- **全程免二次请求**：通过 WebEngine 注入脚本捕获页面自身的 `detail/get/detail` 响应，只引用浏览器已经发送的结果，彻底避免 Python 端再次请求接口。  
 - **批量捕捉**：开启“开始捕捉”后可多次点击地物，停止后一次性选择导出 GeoJSON / Shapefile / 双格式。  
 - **图形预览**：应用内使用 `QGraphicsView` 将多边形进行自适应缩放预览，方便核对地物轮廓。  
 - **多格式导出**：支持 GeoJSON（含属性字段）和 Shapefile（自动生成 `.shp/.shx/.dbf/.prj`），批量导出时自动跳过无几何的 POI 并给出提示。  
 - **坐标统一**：所有 `mining_shape` 坐标会自动从 GCJ-02（火星坐标）转换为 WGS84，导出的矢量文件可直接用于标准 GIS 软件。  
 - **数据复用**：解析逻辑统一封装在 `gaode_client.py`，确保捕捉模式与单次查询都基于同一套 JSON 结构。
-- **品牌图标**：应用和打包产物共用根目录下的 `favicon.ico`，桌面端显示统一的 GaodeAtlas 图标。
 
 ## 环境准备
 确保已经安装 Python 3.10+，然后在仓库根目录执行：
@@ -43,7 +41,6 @@ python app.py
 ## 已知限制
 - 某些 POI 需要登录或严格的防爬限制，需要在嵌入式浏览器中提前完成登录或验证。
 - 本工具仅解析 `spec.mining_shape` 字段，若返回缺失外形，导出按钮与批量导出会跳过该 POI 并提示。
-- Qt WebEngine 在首次启动时可能需要额外的磁盘缓存、GPU 支持，若在无显卡服务器上运行，可按官方文档加入 `QTWEBENGINE_DISABLE_SANDBOX=1` 等参数（视运行环境而定）。
 
 ## Nuitka 打包（GaodeAtlas 1.0, Yserver）
 项目提供 `build_with_nuitka.ps1`，使用 Nuitka 将 GUI 打包成单文件可执行程序。
@@ -56,7 +53,6 @@ python app.py
 	```
 
 2. 脚本会自动安装/升级 `nuitka`, `ordered-set`, `zstandard`，然后执行：
-	- `--onefile`：生成单一可执行文件。
 	- `--enable-plugin=pyqt5`：自动收集 PyQt5 运行时代码。
 	- `--windows-company-name=Yserver`，`--windows-product-name=GaodeAtlas`，`--windows-file-version=1.0.0.0`，`--windows-product-version=1.0`：写入元数据。
 	- `--windows-icon-from-ico=favicon.ico`：将 favicon 作为程序图标。
